@@ -1,0 +1,13 @@
+# Defines a default set of lint rules enforced for
+# projects at Google. For details and rationale,
+# see https://github.com/dart-lang/pedantic#enabled-lints.
+include: package:pedantic/analysis_options.yaml
+
+analyzer:
+#   exclude:
+#     - path/to/excluded/files/**
+
+# For lint rules and documentation, see https://dart-lang.github.io/linter/lints/
+linter:
+  rules:
+    curly_braces_in_flow_control_structures: false
