@@ -25,8 +25,8 @@ class System implements Z80Core {
     _ram = Uint8ClampedList(32 * 1024); // 32K
   }
 
-  Z80CPU _cpu;
-  Uint8ClampedList _ram;
+  late final Z80CPU _cpu;
+  late final Uint8ClampedList _ram;
 
   void load(int address, List<int> data) {
     _ram.setRange(address, address + data.length, data);
