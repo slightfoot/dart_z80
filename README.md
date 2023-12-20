@@ -1,5 +1,7 @@
 # Zilog Z80 microprocessor emulator
 
+Maintained by: Simon Lightfoot [@slightfoot](https://github.com/slightfoot)
+
 This is an emulator for the Z80 processor, ported to Dart from JS and is a simple, 
 straightforward instruction interpreter. There is no fancy dynamic recompilation 
 or cycle-accurate emulation. It is developed to serve as a component of a larger 
@@ -8,14 +10,9 @@ system which incorporates a Z80 as its CPU.
 The code assumes that the reader is familiar with the Z80 architecture.
 If you're not, here are some references:
 
-  * Z80 instruction set tables
-    http://clrhome.org/table/
-
-  * The official manual
-    http://www.zilog.com/docs/z80/um0080.pdf
-
-  * The Undocumented Z80, Documented
-    http://www.myquest.nl/z80undocumented/z80-documented-v0.91.pdf
+  * [Z80 instruction set tables](http://clrhome.org/table/)
+  * [The official manual](http://www.zilog.com/docs/z80/um0080.pdf)
+  * [The Undocumented Z80, Documented](http://www.myquest.nl/z80undocumented/z80-documented-v0.91.pdf)
 
 ## Usage
 
@@ -79,13 +76,12 @@ class System implements Z80Core {
 
 ## Features and bugs
 
-Please file feature requests and bugs at the [issue tracker][tracker].
+Please file feature requests and bugs at the [issue tracker](https://github.com/slightfoot/dart_z80/issues).
 
 ## License
 This code is copyright Molly Howell, Simon Lightfoot and contributors and is made
 available under the MIT license. The text of the MIT license can be found in the
-LICENSE file in this repository.
+[LICENSE](https://github.com/slightfoot/dart_z80/blob/master/LICENSE) file in this repository.
 
 Ported from: https://github.com/DrGoldfire/Z80.js
 
-[tracker]: https://github.com/slightfoot/dart_z80/issues
