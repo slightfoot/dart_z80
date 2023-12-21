@@ -10,9 +10,9 @@ system which incorporates a Z80 as its CPU.
 The code assumes that the reader is familiar with the Z80 architecture.
 If you're not, here are some references:
 
-  * [Z80 instruction set tables](http://clrhome.org/table/)
-  * [The official manual](http://www.zilog.com/docs/z80/um0080.pdf)
-  * [The Undocumented Z80, Documented](http://www.myquest.nl/z80undocumented/z80-documented-v0.91.pdf)
+  * [Z80 instruction set tables](https://clrhome.org/table/)
+  * [The official manual](https://www.zilog.com/docs/z80/um0080.pdf)
+  * [The Undocumented Z80, Documented](https://www.myquest.nl/z80undocumented/z80-documented-v0.91.pdf)
 
 ## Usage
 

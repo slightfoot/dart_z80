@@ -1,3 +1,7 @@
+## 0.2.2
+
+- Fix pub.dev analysis issues
+
 ## 0.2.1
 
 - Update README.md
