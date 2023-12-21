@@ -15,8 +15,14 @@ void main() {
   // 0007| $AA
   system.load(0, [0xA8, 0x0E, 0x07, 0x0A, 0x3C, 0x02, 0x76, 0xAA]);
   print('before ram[7] = ${system.memRead(7).toRadixString(16)}');
-  system.run(24);
+  system.run();
   print('after  ram[7] = ${system.memRead(7).toRadixString(16)}');
+  //
+  // Expected output:
+  //
+  // before ram[7] = aa
+  // after  ram[7] = ab
+  //
 }
 
 class System implements Z80Core {
@@ -32,9 +38,15 @@ class System implements Z80Core {
     _ram.setRange(address, address + data.length, data);
   }
 
-  int run(int cycles) {
-    while (cycles > 0) {
-      cycles -= _cpu.runInstruction();
+  int run([int cycles = 0]) {
+    if (cycles == 0) {
+      while (!_cpu.isHalted()) {
+        cycles -= _cpu.runInstruction();
+      }
+    } else {
+      while (!_cpu.isHalted() && cycles > 0) {
+        cycles -= _cpu.runInstruction();
+      }
     }
     return cycles;
   }

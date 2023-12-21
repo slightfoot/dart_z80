@@ -1,6 +1,11 @@
 part of 'z80_cpu.dart';
 
+/// Z80 CPU State
+///
+/// Stores all registers and state required to run a [Z80CPU]
+///
 class Z80State {
+  /// Constructs a new [Z80State]
   Z80State({
     int a = 0x00,
     int b = 0x00,
@@ -117,8 +122,10 @@ class Z80State {
   // including processing any prefixes and handling interrupts.
   int _cycleCounter;
 
+  /// Returns a cloned CPU state
   Z80State get state => clone();
 
+  /// Sets the current CPU state
   set state(Z80State value) {
     _a = value._a;
     _b = value._b;
@@ -151,6 +158,7 @@ class Z80State {
     _cycleCounter = value._cycleCounter;
   }
 
+  /// Clones the current CPU state
   Z80State clone() {
     return Z80State(
       a: _a,
@@ -185,6 +193,7 @@ class Z80State {
     );
   }
 
+  /// Loads CPU State from a [Map]
   factory Z80State.fromJson(Map<String, dynamic> state) {
     return Z80State(
       a: state['a'] as int,
@@ -219,6 +228,7 @@ class Z80State {
     );
   }
 
+  /// Saves current CPU state to a [Map]
   Map<String, dynamic> toJson() {
     return {
       'b': _b,
@@ -256,7 +266,7 @@ class Z80State {
   @override
   String toString() {
     final hash = hashCode.toUnsigned(20).toRadixString(16).padLeft(5, '0');
-    return 'Z80State($hash)';
+    return 'Z80State#$hash';
   }
 
   @override
@@ -295,34 +305,37 @@ class Z80State {
           _cycleCounter == other._cycleCounter;
 
   @override
-  int get hashCode =>
-      _a.hashCode ^
-      _b.hashCode ^
-      _c.hashCode ^
-      _d.hashCode ^
-      _e.hashCode ^
-      _h.hashCode ^
-      _l.hashCode ^
-      _aPrime.hashCode ^
-      _bPrime.hashCode ^
-      _cPrime.hashCode ^
-      _dPrime.hashCode ^
-      _ePrime.hashCode ^
-      _hPrime.hashCode ^
-      _lPrime.hashCode ^
-      _ix.hashCode ^
-      _iy.hashCode ^
-      _i.hashCode ^
-      _r.hashCode ^
-      _sp.hashCode ^
-      _pc.hashCode ^
-      _flags.hashCode ^
-      _flagsPrime.hashCode ^
-      _interruptMode.hashCode ^
-      _iff1.hashCode ^
-      _iff2.hashCode ^
-      _halted.hashCode ^
-      _doDelayedDi.hashCode ^
-      _doDelayedEi.hashCode ^
-      _cycleCounter.hashCode;
+  int get hashCode {
+    return Object.hashAll([
+      _a.hashCode,
+      _b.hashCode,
+      _c.hashCode,
+      _d.hashCode,
+      _e.hashCode,
+      _h.hashCode,
+      _l.hashCode,
+      _aPrime.hashCode,
+      _bPrime.hashCode,
+      _cPrime.hashCode,
+      _dPrime.hashCode,
+      _ePrime.hashCode,
+      _hPrime.hashCode,
+      _lPrime.hashCode,
+      _ix.hashCode,
+      _iy.hashCode,
+      _i.hashCode,
+      _r.hashCode,
+      _sp.hashCode,
+      _pc.hashCode,
+      _flags.hashCode,
+      _flagsPrime.hashCode,
+      _interruptMode.hashCode,
+      _iff1.hashCode,
+      _iff2.hashCode,
+      _halted.hashCode,
+      _doDelayedDi.hashCode,
+      _doDelayedEi.hashCode,
+      _cycleCounter.hashCode,
+    ]);
+  }
 }

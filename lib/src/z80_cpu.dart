@@ -1,39 +1,17 @@
-/// Emulator for the Zilog Z80 microprocessor.
-///
-/// Author: Molly Howell
-/// Ported to Dart: Simon Lightfoot
-///
-/// Remarks:
-///  This module is a simple, straightforward instruction interpreter.
-///  There is no fancy dynamic recompilation or cycle-accurate emulation.
-///
-///  The code and the comments in this file assume that the reader is familiar
-///  with the Z80 architecture. If you're not, here are some references I use:
-///
-///  Z80 instruction set tables
-///     http://clrhome.org/table/
-///
-///  The official manual
-///     http://www.zilog.com/docs/z80/um0080.pdf
-///
-///  The Undocumented Z80, Documented
-///     http://www.myquest.nl/z80undocumented/z80-documented-v0.91.pdf
-///
-/// Copyright (C) Molly Howell
-///
-/// This code is released under the MIT license,
-/// a copy of which is available in the associated LICENSE file,
-/// or at http://opensource.org/licenses/MIT
-///
-library;
-
 import 'package:z80/src/z80_core.dart';
 import 'package:z80/src/z80_flags.dart';
 
 part 'z80_state.dart';
 
+/// Code that runs for a Z80 Instruction
 typedef Z80Instruction = void Function();
 
+/// Z80 CPU
+///
+/// Maintains its' own state as [Z80State]
+///
+/// Requires an implementation of [Z80Core] so it can operate.
+///
 class Z80CPU extends Z80State {
   Z80CPU(this._core) {
     _setupInstructions();
@@ -70,6 +48,9 @@ class Z80CPU extends Z80State {
     // Obviously we've not used any cycles yet.
     _cycleCounter = 0;
   }
+
+  /// Reports if the CPU is halted
+  bool isHalted() => _halted;
 
   /// Runs a single instruction
   ///
@@ -166,7 +147,8 @@ class Z80CPU extends Z80State {
         //  but it doesn't appear that this is actually the case on the hardware,
         //  so we don't attempt to enforce that here.
         var vectorAddress = ((_i << 8) | data);
-        _pc = _core.memRead(vectorAddress) | (_core.memRead((vectorAddress + 1) & 0xffff) << 8);
+        _pc = _core.memRead(vectorAddress) |
+            (_core.memRead((vectorAddress + 1) & 0xffff) << 8);
         _cycleCounter += 19;
       }
     }
@@ -238,7 +220,16 @@ class Z80CPU extends Z80State {
       // We'll get the operand and then use this "jump table"
       //  to call the correct utility function for the instruction.
       var operand = getOperand(opcode),
-          opArray = [_doAdd, _doAddCarry, _doSub, _doSubCarry, _doAnd, _doXor, _doOr, _doCompare];
+          opArray = [
+            _doAdd,
+            _doAddCarry,
+            _doSub,
+            _doSubCarry,
+            _doAnd,
+            _doXor,
+            _doOr,
+            _doCompare
+          ];
       opArray[(opcode & 0x38) >> 3](operand);
     } else {
       // This is one of the less formulaic instructions;
@@ -250,33 +241,18 @@ class Z80CPU extends Z80State {
     //
     // If this was a prefixed instruction, then
     // the prefix handler has added its extra cycles already.
-    _cycleCounter += cycleCounts[opcode];
+    _cycleCounter += _cycleCounts[opcode];
   }
 
+  /// Since we use integers as bytes we need to sign-extend the 8-bit unsigned
+  /// value to correctly express negative byte offsets.
   int _getSignedOffsetByte(int value) {
-    // This function requires some explanation.
-    // We just use JavaScript Number variables for our registers,
-    // not like a typed array or anything.
-    //
-    // That means that, when we have a byte value that's supposed
-    // to represent a signed offset, the value we actually see
-    // isn't signed at all, it's just a small integer.
-    //
-    // So, this function converts that byte into something JavaScript
-    // will recognize as signed, so we can easily do arithmetic with it.
-    //
     // First, we clamp the value to a single byte, just in case.
     value &= 0xff;
     // We don't have to do anything if the value is positive.
     if (value & 0x80 != 0) {
-      // But if the value is negative, we need to manually un-two's-compliment it.
-      // I'm going to assume you can figure out what I meant by that,
-      // because I don't know how else to explain it.
-      //
-      // We could also just do value |= 0xffffff00, but I prefer
-      // not caring how many bits are in the integer representation
-      // of a JavaScript number in the currently running browser.
-      value = -((0xff & ~value) + 1);
+      // But if the value is negative, we need to convert it to signed.
+      value = value.toSigned(8);
     }
     return value;
   }
@@ -340,6 +316,7 @@ class Z80CPU extends Z80State {
     _flags.X = (result & 0x08) >> 3;
   }
 
+  /// returns the parity for unsigned byte by using pre-calculated 256 entries
   int _parity(int value) {
     // We could try to actually calculate the parity every time,
     // but why calculate what you can pre-calculate?
@@ -397,7 +374,8 @@ class Z80CPU extends Z80State {
       //  because the instruction decoder increments the PC
       //  unconditionally at the end of every instruction
       //  and we need to counteract that so we end up at the jump target.
-      _pc = _core.memRead((_pc + 1) & 0xffff) | (_core.memRead((_pc + 2) & 0xffff) << 8);
+      _pc = _core.memRead((_pc + 1) & 0xffff) |
+          (_core.memRead((_pc + 2) & 0xffff) << 8);
       _pc = (_pc - 1) & 0xffff;
     } else {
       // We're not taking this jump, just move the PC past the operand.
@@ -426,7 +404,8 @@ class Z80CPU extends Z80State {
     if (condition) {
       _cycleCounter += 7;
       _pushWord((_pc + 3) & 0xffff);
-      _pc = _core.memRead((_pc + 1) & 0xffff) | (_core.memRead((_pc + 2) & 0xffff) << 8);
+      _pc = _core.memRead((_pc + 1) & 0xffff) |
+          (_core.memRead((_pc + 2) & 0xffff) << 8);
       _pc = (_pc - 1) & 0xffff;
     } else {
       _pc = (_pc + 2) & 0xffff;
@@ -460,7 +439,10 @@ class Z80CPU extends Z80State {
     _flags.H = (((operand & 0x0f) + (_a & 0x0f)) & 0x10) != 0 ? 1 : 0;
     // An overflow has happened if the sign bits of the accumulator and the operand
     //  don't match the sign bit of the result value.
-    _flags.P = ((_a & 0x80) == (operand & 0x80)) && ((_a & 0x80) != (result & 0x80)) ? 1 : 0;
+    _flags.P =
+        ((_a & 0x80) == (operand & 0x80)) && ((_a & 0x80) != (result & 0x80))
+            ? 1
+            : 0;
     _flags.N = 0;
     _flags.C = (result & 0x100) != 0 ? 1 : 0;
 
@@ -473,8 +455,12 @@ class Z80CPU extends Z80State {
 
     _flags.S = (result & 0x80) != 0 ? 1 : 0;
     _flags.Z = (result & 0xff) == 0 ? 1 : 0;
-    _flags.H = (((operand & 0x0f) + (_a & 0x0f) + _flags.C) & 0x10) != 0 ? 1 : 0;
-    _flags.P = ((_a & 0x80) == (operand & 0x80)) && ((_a & 0x80) != (result & 0x80)) ? 1 : 0;
+    _flags.H =
+        (((operand & 0x0f) + (_a & 0x0f) + _flags.C) & 0x10) != 0 ? 1 : 0;
+    _flags.P =
+        ((_a & 0x80) == (operand & 0x80)) && ((_a & 0x80) != (result & 0x80))
+            ? 1
+            : 0;
     _flags.N = 0;
     _flags.C = (result & 0x100) != 0 ? 1 : 0;
 
@@ -488,7 +474,10 @@ class Z80CPU extends Z80State {
     _flags.S = (result & 0x80) != 0 ? 1 : 0;
     _flags.Z = (result & 0xff) == 0 ? 1 : 0;
     _flags.H = (((_a & 0x0f) - (operand & 0x0f)) & 0x10) != 0 ? 1 : 0;
-    _flags.P = ((_a & 0x80) != (operand & 0x80)) && ((_a & 0x80) != (result & 0x80)) ? 1 : 0;
+    _flags.P =
+        ((_a & 0x80) != (operand & 0x80)) && ((_a & 0x80) != (result & 0x80))
+            ? 1
+            : 0;
     _flags.N = 1;
     _flags.C = (result & 0x100) != 0 ? 1 : 0;
 
@@ -501,8 +490,12 @@ class Z80CPU extends Z80State {
 
     _flags.S = (result & 0x80) != 0 ? 1 : 0;
     _flags.Z = (result & 0xff) == 0 ? 1 : 0;
-    _flags.H = (((_a & 0x0f) - (operand & 0x0f) - _flags.C) & 0x10) != 0 ? 1 : 0;
-    _flags.P = ((_a & 0x80) != (operand & 0x80)) && ((_a & 0x80) != (result & 0x80)) ? 1 : 0;
+    _flags.H =
+        (((_a & 0x0f) - (operand & 0x0f) - _flags.C) & 0x10) != 0 ? 1 : 0;
+    _flags.P =
+        ((_a & 0x80) != (operand & 0x80)) && ((_a & 0x80) != (result & 0x80))
+            ? 1
+            : 0;
     _flags.N = 1;
     _flags.C = (result & 0x100) != 0 ? 1 : 0;
 
@@ -608,8 +601,10 @@ class Z80CPU extends Z80State {
     _flags.S = (result & 0x8000) != 0 ? 1 : 0;
     _flags.Z = (result & 0xffff) == 0 ? 1 : 0;
     _flags.H = (((hl & 0x0fff) + (operand & 0x0fff)) & 0x1000) != 0 ? 1 : 0;
-    _flags.P =
-        ((hl & 0x8000) == (operand & 0x8000)) && ((result & 0x8000) != (hl & 0x8000)) ? 1 : 0;
+    _flags.P = ((hl & 0x8000) == (operand & 0x8000)) &&
+            ((result & 0x8000) != (hl & 0x8000))
+        ? 1
+        : 0;
     _flags.N = 0;
     _flags.C = (result & 0x10000) != 0 ? 1 : 0;
 
@@ -626,8 +621,10 @@ class Z80CPU extends Z80State {
     _flags.S = (result & 0x8000) != 0 ? 1 : 0;
     _flags.Z = (result & 0xffff) == 0 ? 1 : 0;
     _flags.H = (((hl & 0x0fff) - (operand & 0x0fff)) & 0x1000) != 0 ? 1 : 0;
-    _flags.P =
-        (((hl & 0x8000) != (operand & 0x8000)) && ((result & 0x8000) != (hl & 0x8000))) ? 1 : 0;
+    _flags.P = (((hl & 0x8000) != (operand & 0x8000)) &&
+            ((result & 0x8000) != (hl & 0x8000)))
+        ? 1
+        : 0;
     _flags.N = 1;
     _flags.C = (result & 0x10000) != 0 ? 1 : 0;
 
@@ -1186,7 +1183,8 @@ class Z80CPU extends Z80State {
     _instructions[0x30] = () => _doCondRelJump(_flags.C == 0);
     // 0x31 : LD SP, nn
     _instructions[0x31] = () {
-      _sp = _core.memRead((_pc + 1) & 0xffff) | (_core.memRead((_pc + 2) & 0xffff) << 8);
+      _sp = _core.memRead((_pc + 1) & 0xffff) |
+          (_core.memRead((_pc + 2) & 0xffff) << 8);
       _pc = (_pc + 2) & 0xffff;
     };
     // 0x32 : LD (nn), A
@@ -1263,7 +1261,8 @@ class Z80CPU extends Z80State {
     _instructions[0xc2] = () => _doCondAbsJump(_flags.Z == 0);
     // 0xc3 : JP nn
     _instructions[0xc3] = () {
-      _pc = _core.memRead((_pc + 1) & 0xffff) | (_core.memRead((_pc + 2) & 0xffff) << 8);
+      _pc = _core.memRead((_pc + 1) & 0xffff) |
+          (_core.memRead((_pc + 2) & 0xffff) << 8);
       _pc = (_pc - 1) & 0xffff;
     };
     // 0xc4 : CALL NZ, nn
@@ -1299,7 +1298,16 @@ class Z80CPU extends Z80State {
           bitMask = (1 << bitNumber);
       if (opcode < 0x40) {
         // Shift/rotate instructions
-        var opArray = [_doRlc, _doRrc, _doRl, _doRr, _doSla, _doSra, _doSll, _doSrl];
+        var opArray = [
+          _doRlc,
+          _doRrc,
+          _doRl,
+          _doRr,
+          _doSla,
+          _doSra,
+          _doSll,
+          _doSrl
+        ];
         switch (regCode) {
           case 0:
             _b = opArray[bitNumber](_b);
@@ -1320,7 +1328,8 @@ class Z80CPU extends Z80State {
             _l = opArray[bitNumber](_l);
             break;
           case 6:
-            _core.memWrite(_l | (_h << 8), opArray[bitNumber](_core.memRead(_l | (_h << 8))));
+            _core.memWrite(_l | (_h << 8),
+                opArray[bitNumber](_core.memRead(_l | (_h << 8))));
             break;
           case 7:
             _a = opArray[bitNumber](_a);
@@ -1388,7 +1397,8 @@ class Z80CPU extends Z80State {
             _l &= (0xff & ~bitMask);
             break;
           case 6:
-            _core.memWrite(_l | (_h << 8), _core.memRead(_l | (_h << 8)) & ~bitMask);
+            _core.memWrite(
+                _l | (_h << 8), _core.memRead(_l | (_h << 8)) & ~bitMask);
             break;
           case 7:
             _a &= (0xff & ~bitMask);
@@ -1416,21 +1426,23 @@ class Z80CPU extends Z80State {
             _l |= bitMask;
             break;
           case 6:
-            _core.memWrite(_l | (_h << 8), _core.memRead(_l | (_h << 8)) | bitMask);
+            _core.memWrite(
+                _l | (_h << 8), _core.memRead(_l | (_h << 8)) | bitMask);
             break;
           case 7:
             _a |= bitMask;
             break;
         }
       }
-      _cycleCounter += cycleCountsCB[opcode];
+      _cycleCounter += _cycleCountsCB[opcode];
     };
     // 0xcc : CALL Z, nn
     _instructions[0xcc] = () => _doCondCall(_flags.Z != 0);
     // 0xcd : CALL nn
     _instructions[0xcd] = () {
       _pushWord((_pc + 3) & 0xffff);
-      _pc = _core.memRead((_pc + 1) & 0xffff) | (_core.memRead((_pc + 2) & 0xffff) << 8);
+      _pc = _core.memRead((_pc + 1) & 0xffff) |
+          (_core.memRead((_pc + 2) & 0xffff) << 8);
       _pc = (_pc - 1) & 0xffff;
     };
     // 0xce : ADC A, n
@@ -1510,7 +1522,7 @@ class Z80CPU extends Z80State {
       var func = _instructionsDD[opcode];
       if (func != null) {
         func();
-        _cycleCounter += cycleCountsDD[opcode];
+        _cycleCounter += _cycleCountsDD[opcode];
       } else {
         // Apparently if a DD opcode doesn't exist,
         // it gets treated as an unprefixed opcode.
@@ -1520,7 +1532,7 @@ class Z80CPU extends Z80State {
         // as a normal instruction.
         _pc = (_pc - 1) & 0xffff;
         // And we'll add in the cycle count for a NOP.
-        _cycleCounter += cycleCounts[0];
+        _cycleCounter += _cycleCounts[0];
       }
     };
     // 0xde : SBC n
@@ -1592,10 +1604,10 @@ class Z80CPU extends Z80State {
       var func = _instructionsED[opcode];
       if (func != null) {
         func();
-        _cycleCounter += cycleCountsED[opcode];
+        _cycleCounter += _cycleCountsED[opcode];
       } else {
         // If the opcode didn't exist, the whole thing is a two-byte NOP.
-        _cycleCounter += cycleCounts[0];
+        _cycleCounter += _cycleCounts[0];
       }
     };
     // 0xee : XOR n
@@ -1659,7 +1671,7 @@ class Z80CPU extends Z80State {
         func();
         _iy = _ix;
         _ix = temp;
-        _cycleCounter += cycleCountsDD[opcode];
+        _cycleCounter += _cycleCountsDD[opcode];
       } else {
         // Apparently if an FD opcode doesn't exist,
         //  it gets treated as an unprefixed opcode.
@@ -1668,7 +1680,7 @@ class Z80CPU extends Z80State {
         //  as a normal instruction.
         _pc = (_pc - 1) & 0xffff;
         // And we'll add in the cycle count for a NOP.
-        _cycleCounter += cycleCounts[0];
+        _cycleCounter += _cycleCounts[0];
       }
     };
     // 0xfe : CP n
@@ -2319,7 +2331,16 @@ class Z80CPU extends Z80State {
       // by decoding the opcode directly, rather than using a table.
       if (opcode < 0x40) {
         // Shift and rotate instructions.
-        final ddcbFunctions = [_doRlc, _doRrc, _doRl, _doRr, _doSla, _doSra, _doSll, _doSrl];
+        final ddcbFunctions = [
+          _doRlc,
+          _doRrc,
+          _doRl,
+          _doRr,
+          _doSla,
+          _doSra,
+          _doSll,
+          _doSrl
+        ];
         // Most of the opcodes in this range are not valid,
         // so we map this opcode onto one of the ones that is.
         final func = ddcbFunctions[(opcode & 0x38) >> 3],
@@ -2331,12 +2352,16 @@ class Z80CPU extends Z80State {
           // BIT
           _flags.N = 0;
           _flags.H = 1;
-          _flags.Z = (_core.memRead((_ix + offset) & 0xffff) & (1 << bitNumber)) == 0 ? 1 : 0;
+          _flags.Z =
+              (_core.memRead((_ix + offset) & 0xffff) & (1 << bitNumber)) == 0
+                  ? 1
+                  : 0;
           _flags.P = _flags.Z;
           _flags.S = ((bitNumber == 7) && _flags.Z == 0) ? 1 : 0;
         } else if (opcode < 0xc0) {
           // RES
-          value = _core.memRead((_ix + offset) & 0xffff) & ~(1 << bitNumber) & 0xff;
+          value =
+              _core.memRead((_ix + offset) & 0xffff) & ~(1 << bitNumber) & 0xff;
           _core.memWrite((_ix + offset) & 0xffff, value);
         } else {
           // SET
@@ -2373,7 +2398,7 @@ class Z80CPU extends Z80State {
             break;
         }
       }
-      _cycleCounter += cycleCountsCB[opcode] + 8;
+      _cycleCounter += _cycleCountsCB[opcode] + 8;
     };
     // 0xe1 : POP IX
     _instructionsDD[0xe1] = () => _ix = _popWord();
@@ -2393,13 +2418,14 @@ class Z80CPU extends Z80State {
     _instructionsDD[0xf9] = () => _sp = _ix;
   }
 
-  /// These tables contain the number of T cycles used for each instruction.
+  /// This table contain the number of T cycles used for each
+  /// instruction in the range of 0x00~0xFF.
   ///
   /// In a few special cases, such as conditional control flow instructions,
   /// additional cycles might be added to these values.
   ///
   /// The total number of cycles is the return value of runInstruction().
-  static const cycleCounts = <int>[
+  static const _cycleCounts = <int>[
     04, 10, 07, 06, 04, 04, 07, 04, 04, 11, 07, 06, 04, 04, 07, 04, //
     08, 10, 07, 06, 04, 04, 07, 04, 12, 11, 07, 06, 04, 04, 07, 04, //
     07, 10, 16, 06, 04, 04, 07, 04, 07, 11, 16, 06, 04, 04, 07, 04, //
@@ -2418,7 +2444,14 @@ class Z80CPU extends Z80State {
     05, 10, 10, 04, 10, 11, 07, 11, 05, 06, 10, 04, 10, 00, 07, 11, //
   ];
 
-  static const cycleCountsED = <int>[
+  /// This table contain the number of T cycles used for each
+  /// instruction in 0xED range.
+  ///
+  /// In a few special cases, such as conditional control flow instructions,
+  /// additional cycles might be added to these values.
+  ///
+  /// The total number of cycles is the return value of runInstruction().
+  static const _cycleCountsED = <int>[
     00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, //
     00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, //
     00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, //
@@ -2437,7 +2470,14 @@ class Z80CPU extends Z80State {
     00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, //
   ];
 
-  static const cycleCountsCB = <int>[
+  /// This table contain the number of T cycles used for each
+  /// instruction in 0xCB range.
+  ///
+  /// In a few special cases, such as conditional control flow instructions,
+  /// additional cycles might be added to these values.
+  ///
+  /// The total number of cycles is the return value of runInstruction().
+  static const _cycleCountsCB = <int>[
     08, 08, 08, 08, 08, 08, 15, 08, 08, 08, 08, 08, 08, 08, 15, 08, //
     08, 08, 08, 08, 08, 08, 15, 08, 08, 08, 08, 08, 08, 08, 15, 08, //
     08, 08, 08, 08, 08, 08, 15, 08, 08, 08, 08, 08, 08, 08, 15, 08, //
@@ -2456,7 +2496,14 @@ class Z80CPU extends Z80State {
     08, 08, 08, 08, 08, 08, 15, 08, 08, 08, 08, 08, 08, 08, 15, 08, //
   ];
 
-  static const cycleCountsDD = <int>[
+  /// This table contain the number of T cycles used for each
+  /// instruction in 0xDD range.
+  ///
+  /// In a few special cases, such as conditional control flow instructions,
+  /// additional cycles might be added to these values.
+  ///
+  /// The total number of cycles is the return value of runInstruction().
+  static const _cycleCountsDD = <int>[
     00, 00, 00, 00, 00, 00, 00, 00, 00, 15, 00, 00, 00, 00, 00, 00, //
     00, 00, 00, 00, 00, 00, 00, 00, 00, 15, 00, 00, 00, 00, 00, 00, //
     00, 14, 20, 10, 08, 08, 11, 00, 00, 15, 20, 10, 08, 08, 11, 00, //

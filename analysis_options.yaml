@@ -3,3 +3,7 @@ include: package:lints/recommended.yaml
 analyzer:
 #   exclude:
 #     - path/to/excluded/files/**
+
+linter:
+  rules:
+    # non_constant_identifier_names: false

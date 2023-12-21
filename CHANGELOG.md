@@ -1,3 +1,8 @@
+## 0.2.3
+
+- Improved documentation
+- Added `Z80CPU.isHalted()`
+
 ## 0.2.2
 
 - Fix pub.dev analysis issues
