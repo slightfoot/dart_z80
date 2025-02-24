@@ -1,3 +1,8 @@
+## 1.0.0
+
+- Updated minimum supported SDK version to Flutter 3.27.0/Dart 3.6.0
+- Fixes new lint warnings.
+
 ## 0.2.3
 
 - Improved documentation

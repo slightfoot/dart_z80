@@ -2,7 +2,7 @@ name: z80
 description: >
   This is an emulator for the Zilog Z80 microprocessor, 
   it is a simple, straightforward instruction interpreter.
-version: 0.2.3
+version: 1.0.0
 homepage: https://github.com/slightfoot/dart_z80
 maintainer: Simon Lightfoot (@slightfoot)
 
