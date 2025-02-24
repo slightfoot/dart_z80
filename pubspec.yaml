@@ -7,7 +7,7 @@ homepage: https://github.com/slightfoot/dart_z80
 maintainer: Simon Lightfoot (@slightfoot)
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.6.0 <4.0.0'
 
 dev_dependencies:
-  lints: ^3.0.0
+  lints: ^5.1.1
